@@ -1253,19 +1253,6 @@ export default function KanbanCRMPrototype() {
             setOpen={setSidebarOpen}
           />
 
-          {/* Board */}
-          {/* <main className="flex-1 py-6 overflow-hidden">
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {STAGES.map((stage) => (
-                <StageColumn
-                  key={stage.id}
-                  stage={stage}
-                  leads={byStage[stage.id]}
-                  onOpen={openLead}
-                />
-              ))}
-            </div>
-          </main> */}
           {mounted && (
             <DndContext
               sensors={sensors}
@@ -1280,17 +1267,14 @@ export default function KanbanCRMPrototype() {
                     <StageColumn
                       key={stage.id}
                       stage={stage}
-                      leads={byStage[stage.id]} // respect filters on screen
+                      leads={byStage[stage.id]}
                       onOpen={openLead}
                     />
                   ))}
                 </div>
               </main>
 
-              {/* Nice drag overlay (optional – shows the card while dragging) */}
-              <DragOverlay>
-                {/* could render a lightweight ghost if desired */}
-              </DragOverlay>
+              <DragOverlay></DragOverlay>
             </DndContext>
           )}
         </div>
