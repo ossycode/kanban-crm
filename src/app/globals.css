@@ -6,21 +6,81 @@
 } */
 
 @theme inline {
-  /* --color-background: var(--background);
-  --color-foreground: var(--foreground); */
+  --sb-thumb: rgb(148 163 184); /* slate-400 */
+  --sb-thumb-hover: rgb(100 116 139); /* slate-500 */
+  --sb-track: transparent;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* --background: #0a0a0a;
-    --foreground: #ededed; */
+    --sb-thumb: rgb(71 85 105); /* slate-600 */
+    --sb-thumb-hover: rgb(100 116 139); /* slate-500 */
+    --sb-track: transparent;
   }
+}
+
+/* Chromium/WebKit */
+.nice-scroll::-webkit-scrollbar {
+  width: 10px; /* vertical */
+  height: 10px; /* horizontal */
+}
+.nice-scroll::-webkit-scrollbar-track {
+  background: var(--sb-track);
+}
+.nice-scroll::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent; /* creates pill look on light bg */
+  background-clip: content-box;
+}
+.nice-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--sb-thumb-hover);
+  background-clip: content-box;
 }
 
 body {
   /* background: var(--background);
   color: var(--foreground); */
   /* font-family: Arial, Helvetica, sans-serif; */
+}
+@utility no-scrollbar {
+  /* Chrome, Safari and Opera */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+@utility custom-scrollbar {
+  &::-webkit-scrollbar {
+    @apply size-1.5;
+  }
+
+  &::-webkit-scrollbar-track {
+    @apply rounded-full;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    @apply bg-gray-200 rounded-full dark:bg-gray-700;
+  }
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #344054;
+}
+.nice-scroll {
+  scrollbar-gutter: stable; /* avoids layout shift */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--sb-thumb) transparent;
+}
+
+@media (pointer: coarse) {
+  .nice-scroll::-webkit-scrollbar {
+    height: 14px;
+    width: 14px;
+  }
 }

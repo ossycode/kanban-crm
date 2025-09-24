@@ -1,18 +1,17 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
   TouchSensor,
   KeyboardSensor,
-  closestCenter,
   useSensor,
   useSensors,
-  type DragStartEvent,
-  type DragOverEvent,
+  closestCenter,
   type DragEndEvent,
+  type DragOverEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -22,6 +21,15 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useDroppable } from "@dnd-kit/core";
+import {
+  Mail,
+  MessageCircle,
+  Linkedin,
+  Calendar,
+  GripVertical,
+} from "lucide-react";
+import Image from "next/image";
 
 /** ---------- Types ---------- */
 type StageId =
@@ -190,7 +198,7 @@ const INITIAL_LEADS: Lead[] = [
     title: "Head of Growth",
     company: "NimbusAI",
     avatar: "https://i.pravatar.cc/60?img=8",
-    stage: "new",
+    stage: "sent_dm",
     replyRate: 21,
     industryAvgReply: 50,
     engagement: 100,
@@ -309,7 +317,15 @@ function KpiWithBenchmark({
 }
 
 /** ---------- Compact Card ---------- */
-function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => void }) {
+function LeadCard({
+  lead,
+  onOpen,
+  dragHandleProps,
+}: {
+  lead: Lead;
+  onOpen: (l: Lead) => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
+}) {
   const aboveAvg = lead.replyRate >= lead.industryAvgReply;
   const [hover, setHover] = useState(false);
 
@@ -319,15 +335,34 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => void }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onOpen(lead)}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(lead)}
         className="w-full text-left rounded-xl border border-slate-200 bg-white p-3 hover:shadow-sm hover:border-slate-300 transition shadow-[0_1px_0_rgba(0,0,0,0.03)]"
       >
         <div className="flex items-start gap-3">
-          <img
-            src={lead.avatar}
+          {/* Drag handle (only visible when provided by Sortable wrapper) */}
+          {dragHandleProps && (
+            <span
+              aria-label="Drag"
+              className="mt-1 h-6 w-6 shrink-0 rounded hover:bg-slate-50 text-slate-400 grid place-items-center cursor-grab active:cursor-grabbing touch-none"
+              {...dragHandleProps}
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <GripVertical className="h-4 w-4" />
+            </span>
+          )}
+
+          <Image
+            src={`${lead.avatar}`}
             alt=""
             className="h-8 w-8 rounded-full object-cover"
+            width={100}
+            height={100}
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
@@ -341,7 +376,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => void }) {
               </div>
               <span
                 className={cn(
-                  "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white",
+                  "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white nice-scroll",
                   STAGES.find((s) => s.id === lead.stage)?.color
                 )}
               >
@@ -349,7 +384,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => void }) {
               </span>
             </div>
 
-            {/* Reply Rate with benchmark (per guide) */}
+            {/* Reply Rate with benchmark */}
             <div className="mt-2">
               <div className="flex items-center gap-2 text-sm">
                 <span
@@ -363,11 +398,14 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => void }) {
                 <span className="text-xs text-slate-500">
                   (Avg {lead.industryAvgReply}%)
                 </span>
-                {aboveAvg ? (
-                  <span className="text-emerald-600 text-xs">↑</span>
-                ) : (
-                  <span className="text-rose-600 text-xs">↓</span>
-                )}
+                <span
+                  className={cn(
+                    "text-xs",
+                    aboveAvg ? "text-emerald-600" : "text-rose-600"
+                  )}
+                >
+                  {aboveAvg ? "↑" : "↓"}
+                </span>
               </div>
             </div>
 
@@ -380,44 +418,52 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => void }) {
                 {currency(lead.dealValue)}
               </span>
               {lead.nextStepAt && (
-                <span className="rounded bg-slate-50 px-1.5 py-0.5">
-                  📅 {new Date(lead.nextStepAt).toLocaleDateString()}
+                <span className="inline-flex items-center gap-1 rounded bg-slate-50 px-1.5 py-0.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {new Date(lead.nextStepAt).toLocaleDateString()}
                 </span>
               )}
             </div>
 
-            {/* Quick actions (email / whatsapp / linkedin) */}
+            {/* Quick actions (icons) */}
             <div className="mt-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
-              <button className="rounded border px-2 py-1 text-xs hover:bg-slate-50">
-                ✉️
+              <button
+                className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Mail className="h-4 w-4" />
               </button>
-              <button className="rounded border px-2 py-1 text-xs hover:bg-slate-50">
-                💬
+              <button
+                className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MessageCircle className="h-4 w-4" />
               </button>
-              <button className="rounded border px-2 py-1 text-xs hover:bg-slate-50">
-                🔗
+              <button
+                className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Linkedin className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
-      </button>
+      </div>
 
-      {/* Hover quick view (headline, location, priority, first interaction, avg response) */}
+      {/* Hover quick view */}
       {hover && (
-        <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border bg-white p-3 text-xs text-slate-700 shadow">
+        <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border bg-white p-3 text-xs text-slate-700 shadow nice-scroll">
           {lead.headline && <div className="mb-1">{lead.headline}</div>}
           <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {lead.location && <span>📍 {lead.location}</span>}
-            {lead.priority && <span>⚑ {lead.priority}</span>}
+            {lead.location && <span>{lead.location}</span>}
+            {lead.priority && <span>Priority: {lead.priority}</span>}
             {lead.firstInteraction && (
               <span>First: {lead.firstInteraction}</span>
             )}
             {lead.avgResponseHrs !== undefined && (
               <span>Avg resp: {lead.avgResponseHrs}h</span>
             )}
-            {lead.tags?.length ? (
-              <span>Tags: {lead.tags.join(", ")}</span>
-            ) : null}
+            {!!lead.tags?.length && <span>Tags: {lead.tags.join(", ")}</span>}
           </div>
         </div>
       )}
@@ -426,6 +472,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => void }) {
 }
 
 /** ---------- Column ---------- */
+
 function StageColumn({
   stage,
   leads,
@@ -435,8 +482,9 @@ function StageColumn({
   leads: Lead[];
   onOpen: (l: Lead) => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
-    <div className="w-[320px] shrink-0">
+    <div className="w-[320px] shrink-0" id={stage.id}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className={cn("h-2 w-2 rounded-full", stage.color)} />
@@ -449,20 +497,31 @@ function StageColumn({
           ⋯
         </button>
       </div>
-      <div className="space-y-3">
-        {leads.map((l) => (
-          <LeadCard key={l.id} lead={l} onOpen={onOpen} />
-        ))}
-        {leads.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500">
-            Empty — add your first lead
-          </div>
+
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "space-y-3 min-h-[20px] rounded-lg p-0.5",
+          isOver && "ring-2 ring-slate-300"
         )}
+      >
+        <SortableContext
+          items={leads.map((l) => l.id)}
+          strategy={rectSortingStrategy}
+        >
+          {leads.map((l) => (
+            <SortableLeadCard key={l.id} lead={l} onOpen={onOpen} />
+          ))}
+          {leads.length === 0 && (
+            <div className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500">
+              Drop here
+            </div>
+          )}
+        </SortableContext>
       </div>
     </div>
   );
 }
-
 /** ---------- Playbooks ---------- */
 function Playbooks({
   context,
@@ -509,6 +568,40 @@ function Playbooks({
   );
 }
 
+/** ---------- Sortable item wrapper ---------- */
+function SortableLeadCard({
+  lead,
+  onOpen,
+}: {
+  lead: Lead;
+  onOpen: (l: Lead) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lead.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <LeadCard
+        lead={lead}
+        onOpen={onOpen}
+        dragHandleProps={listeners as any}
+      />
+    </div>
+  );
+}
+
 /** ---------- Detail Drawer ---------- */
 function DetailDrawer({
   lead,
@@ -532,7 +625,13 @@ function DetailDrawer({
         <div className="p-4 border-b border-slate-200">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <img src={lead.avatar} className="h-10 w-10 rounded-full" />
+              <Image
+                src={`${lead.avatar}`}
+                className="h-10 w-10 rounded-full"
+                alt="lead"
+                width={100}
+                height={100}
+              />
               <div>
                 <div className="text-sm font-semibold text-slate-900">
                   {lead.name}
@@ -989,6 +1088,17 @@ export default function KanbanCRMPrototype() {
   const [filters, setFilters] = useState<SidebarProps["filters"]>({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 100, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   const owners = useMemo(
     () =>
       Array.from(
@@ -1033,6 +1143,68 @@ export default function KanbanCRMPrototype() {
     filtered.forEach((l) => map[l.stage].push(l));
     return map;
   }, [filtered]);
+
+  const allByStage = useMemo(() => {
+    const map: Record<StageId, Lead[]> = {
+      new: [],
+      sent_dm: [],
+      in_progress: [],
+      qualified: [],
+      call_booked: [],
+      proposal: [],
+      won: [],
+      lost: [],
+    };
+    leads.forEach((l) => map[l.stage].push(l));
+    return map;
+  }, [leads]);
+
+  const findStageOf = (id: string): StageId =>
+    (Object.keys(allByStage) as StageId[]).find((s) =>
+      allByStage[s].some((l) => l.id === id)
+    )!;
+
+  function onDragOver(e: DragOverEvent) {
+    const { active, over } = e;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    const activeStage = findStageOf(activeId);
+    const overStage = STAGES.some((s) => s.id === overId)
+      ? (overId as StageId)
+      : findStageOf(overId);
+    if (activeStage !== overStage) {
+      setLeads((prev) =>
+        prev.map((l) => (l.id === activeId ? { ...l, stage: overStage } : l))
+      );
+    }
+  }
+
+  function onDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over) return;
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    const stage = findStageOf(activeId);
+    const ids = allByStage[stage].map((l) => l.id);
+    const oldIndex = ids.indexOf(activeId);
+    const newIndex = STAGES.some((s) => s.id === overId)
+      ? oldIndex
+      : ids.indexOf(overId);
+    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+      const reordered = arrayMove(ids, oldIndex, newIndex);
+      const order = new Map(reordered.map((id, i) => [id, i]));
+      setLeads((prev) =>
+        [...prev].sort((a, b) => {
+          if (a.stage !== stage || b.stage !== stage) return 0;
+          return (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
+        })
+      );
+    }
+  }
 
   function openLead(l: Lead) {
     setOpen(l);
@@ -1082,7 +1254,7 @@ export default function KanbanCRMPrototype() {
           />
 
           {/* Board */}
-          <main className="flex-1 py-6 overflow-hidden">
+          {/* <main className="flex-1 py-6 overflow-hidden">
             <div className="flex gap-4 overflow-x-auto pb-2">
               {STAGES.map((stage) => (
                 <StageColumn
@@ -1093,7 +1265,34 @@ export default function KanbanCRMPrototype() {
                 />
               ))}
             </div>
-          </main>
+          </main> */}
+          {mounted && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragOver={onDragOver}
+              onDragEnd={onDragEnd}
+            >
+              {/* Board */}
+              <main className="flex-1 py-6 overflow-hidden">
+                <div className="flex gap-4 overflow-x-auto pb-2 nice-scroll">
+                  {STAGES.map((stage) => (
+                    <StageColumn
+                      key={stage.id}
+                      stage={stage}
+                      leads={byStage[stage.id]} // respect filters on screen
+                      onOpen={openLead}
+                    />
+                  ))}
+                </div>
+              </main>
+
+              {/* Nice drag overlay (optional – shows the card while dragging) */}
+              <DragOverlay>
+                {/* could render a lightweight ghost if desired */}
+              </DragOverlay>
+            </DndContext>
+          )}
         </div>
       </div>
 
