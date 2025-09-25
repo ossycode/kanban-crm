@@ -813,9 +813,11 @@ function LeadCard({
 
   const showHover = hover && !isPointerDown && !dragging;
 
-  // Stage bg class (e.g. "bg-indigo-500") for the accent strip
+  // Stage bg class (e.g. "bg-indigo-500") for the accent strip + progress bar fill
   const stageBgClass =
     STAGES.find((s) => s.id === lead.stage)?.color || "bg-slate-300";
+
+  const engagementClamped = Math.max(0, Math.min(100, lead.engagement));
 
   return (
     <div
@@ -838,10 +840,10 @@ function LeadCard({
       >
         {/* Left color accent that matches stage */}
         <div
-          className={cn(
-            "pointer-events-none absolute left-0 top-0 h-full w-1.5 rounded-l-xl",
-            stageBgClass
-          )}
+        //   className={cn(
+        //     "pointer-events-none absolute left-0 top-0 h-full w-1.5 rounded-l-xl",
+        //     stageBgClass
+        //   )}
         />
 
         {/* Top row: drag handle + (avatar + identity) + stage + menu */}
@@ -894,7 +896,7 @@ function LeadCard({
               </div>
             </div>
 
-            {/* Benchmarked Reply Rate (full width) */}
+            {/* Benchmarked Reply Rate */}
             <div className="mt-2 flex items-center gap-2 text-sm">
               <span
                 className={cn(
@@ -917,11 +919,24 @@ function LeadCard({
               </span>
             </div>
 
-            {/* Key Metrics (full width) */}
+            {/* Engagement score + mini progress bar */}
+            <div className="mt-2">
+              <div className="flex items-center justify-between text-xs text-slate-600">
+                <span className="font-medium text-slate-700">Engagement</span>
+                <span className="font-semibold text-slate-900">
+                  {engagementClamped}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full", stageBgClass)}
+                  style={{ width: `${engagementClamped}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Key Metrics */}
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-              <span className="rounded bg-slate-50 px-1.5 py-0.5">
-                Eng {lead.engagement}
-              </span>
               <span className="rounded bg-slate-50 px-1.5 py-0.5">
                 {currency(lead.dealValue)}
               </span>
@@ -933,26 +948,50 @@ function LeadCard({
               )}
             </div>
 
-            {/* Quick Actions (full width) */}
+            {/* Quick Actions with tooltips */}
             <div className="mt-2 flex items-center gap-2 transition">
-              <button
-                className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Mail className="h-4 w-4" />
-              </button>
-              <button
-                className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MessageCircle className="h-4 w-4" />
-              </button>
-              <button
-                className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Linkedin className="h-4 w-4" />
-              </button>
+              <div className="relative group/tt">
+                <button
+                  aria-label="Send email"
+                  title="Send email"
+                  className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Mail className="h-4 w-4" />
+                </button>
+                {/* Tooltip */}
+                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-7 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white opacity-0 group-hover/tt:opacity-100 transition-opacity shadow">
+                  Send email
+                </div>
+              </div>
+
+              <div className="relative group/tt">
+                <button
+                  aria-label="Open WhatsApp"
+                  title="Open WhatsApp"
+                  className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </button>
+                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-7 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white opacity-0 group-hover/tt:opacity-100 transition-opacity shadow">
+                  Open WhatsApp
+                </div>
+              </div>
+
+              <div className="relative group/tt">
+                <button
+                  aria-label="Open LinkedIn DM"
+                  title="Open LinkedIn DM"
+                  className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Linkedin className="h-4 w-4" />
+                </button>
+                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-7 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white opacity-0 group-hover/tt:opacity-100 transition-opacity shadow">
+                  Open LinkedIn DM
+                </div>
+              </div>
             </div>
           </div>
         </div>
