@@ -552,7 +552,7 @@ function KpiWithBenchmark({
       : "text-rose-600";
   return (
     <div className="flex items-end gap-2">
-      <div className="text-slate-900 text-base font-semibold leading-5">
+      <div className="text-slate-700 text-md font-semibold leading-5">
         {label}: {value}
       </div>
       {benchmark && (
@@ -1076,7 +1076,7 @@ function Playbooks({
 }: {
   context: "dm" | "comments" | "email" | "deal";
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   return (
     <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
       <button
@@ -1141,8 +1141,11 @@ function DetailDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1" onClick={onClose} />
-      <div className="w-full max-w-[520px] h-full bg-white shadow-2xl border-l border-slate-200 p-0 flex flex-col">
+      <div
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"
+        onClick={onClose}
+      />
+      <div className="absolute right-0 top-0 h-full w-full max-w-[520px] bg-white shadow-2xl border-l border-slate-200 p-0 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-slate-200">
           <div className="flex items-start justify-between">
@@ -1202,7 +1205,7 @@ function DetailDrawer({
 
         {/* Tabs */}
         <div className="px-4 border-b border-slate-200">
-          <div className="flex gap-3 text-sm">
+          <div className="flex  justify-around gap-3 text-sm">
             {[
               { k: "engagement", l: "Engagement" },
               { k: "deal", l: "Deal" },
@@ -1229,7 +1232,7 @@ function DetailDrawer({
         <div className="p-4 overflow-auto">
           {tab === "engagement" && (
             <div>
-              <div className="mb-3 flex gap-2 text-sm">
+              <div className="mb-5 flex gap-2 text-sm mt-2">
                 {[
                   { k: "dm", l: "LinkedIn DMs" },
                   { k: "comments", l: "Comments" },
@@ -1239,7 +1242,7 @@ function DetailDrawer({
                   <button
                     key={t.k}
                     className={cn(
-                      "px-3 py-1.5 rounded-full border",
+                      "px-3 py-1.5 rounded-xl border",
                       commTab === t.k
                         ? "border-slate-900 text-slate-900"
                         : "border-slate-200 text-slate-600 hover:text-slate-800"
@@ -1251,7 +1254,7 @@ function DetailDrawer({
                 ))}
               </div>
 
-              <div className="space-y-1 mb-4">
+              <div className="space-y-4 mb-6">
                 <KpiWithBenchmark
                   label="Reply Rate"
                   value={`${lead.replyRate}%`}
