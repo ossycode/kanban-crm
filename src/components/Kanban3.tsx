@@ -1273,7 +1273,6 @@ function DetailDrawer({
                 )}
               </div>
 
-              {/* DM Tab content example */}
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="text-sm font-medium text-slate-800 mb-2">
                   {commTab === "dm"
