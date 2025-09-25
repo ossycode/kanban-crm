@@ -787,10 +787,10 @@ function LeadCard({
   const [hover, setHover] = useState(false);
   const [isPointerDown, setIsPointerDown] = useState(false);
 
+  // Hide hover preview while dragging globally
   const { active } = useDndContext();
   const dragging = Boolean(active);
 
-  // Ensure we clear pointer-down if the drag ends outside the card
   useEffect(() => {
     const up = () => setIsPointerDown(false);
     const end = () => setIsPointerDown(false);
@@ -813,6 +813,10 @@ function LeadCard({
 
   const showHover = hover && !isPointerDown && !dragging;
 
+  // Stage bg class (e.g. "bg-indigo-500") for the accent strip
+  const stageBgClass =
+    STAGES.find((s) => s.id === lead.stage)?.color || "bg-slate-300";
+
   return (
     <div
       className="group relative"
@@ -827,12 +831,19 @@ function LeadCard({
         onClick={() => onOpen(lead)}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(lead)}
         onPointerDown={() => {
-          // kill hover immediately and block re-arming while dragging
           setHover(false);
           setIsPointerDown(true);
         }}
-        className="w-full text-left rounded-xl border border-slate-200 bg-white p-3 hover:shadow-sm hover:border-slate-300 transition shadow-[0_1px_0_rgba(0,0,0,0.03)] overflow-hidden"
+        className="relative w-full text-left rounded-xl border border-slate-200 bg-white p-3 hover:shadow-sm hover:border-slate-300 transition shadow-[0_1px_0_rgba(0,0,0,0.03)] overflow-hidden"
       >
+        {/* Left color accent that matches stage */}
+        <div
+          className={cn(
+            "pointer-events-none absolute left-0 top-0 h-full w-1.5 rounded-l-xl",
+            stageBgClass
+          )}
+        />
+
         {/* Top row: drag handle + (avatar + identity) + stage + menu */}
         <div className="flex items-start gap-3">
           {dragHandleProps && (
@@ -851,7 +862,7 @@ function LeadCard({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              {/* Avatar + identity kept together so the rows below span full width */}
+              {/* Avatar + identity kept together so rows below span full width */}
               <div className="flex items-center gap-3 min-w-0">
                 <Image
                   src={`${lead.avatar}`}
@@ -947,7 +958,7 @@ function LeadCard({
         </div>
       </div>
 
-      {/* Hover Quick View — never shows while pointer is down (i.e., during drag) */}
+      {/* Hover Quick View — hidden while pointer down or dragging */}
       {showHover && (
         <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border bg-white p-3 text-xs text-slate-700 shadow pointer-events-none">
           {lead.headline && <div className="mb-1">{lead.headline}</div>}
