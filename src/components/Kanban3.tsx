@@ -645,10 +645,10 @@ function LeadCard({
             <button
               aria-label="Open WhatsApp"
               title="Open WhatsApp"
-              className="rounded border px-2 py-1 hover:bg-slate-50 cursor-pointer"
+              className="rounded border border-green-600 px-2 py-1 hover:bg-slate-50 cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             >
-              <MessageCircle className="h-4 w-4" />
+              <MessageCircle className="h-4 w-4 text-green-600" />
             </button>
             <button
               aria-label="Send email"
@@ -661,10 +661,10 @@ function LeadCard({
             <button
               aria-label="Open LinkedIn DM"
               title="Open LinkedIn DM"
-              className="rounded border px-2 py-1 hover:bg-slate-50 cursor-pointer"
+              className="rounded border border-blue-600 px-2 py-1 hover:bg-slate-50 cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             >
-              <Linkedin className="h-4 w-4" />
+              <Linkedin className="h-4 w-4 text-blue-600" />
             </button>
             {/* <CardMenu /> */}
 
