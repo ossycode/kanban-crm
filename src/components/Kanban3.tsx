@@ -23,6 +23,8 @@ import {
   rectSortingStrategy,
   useSortable,
   arrayMove,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -44,8 +46,7 @@ import {
   CheckSquare,
   Trash2,
   MoreHorizontal,
-  ExternalLink,
-  Pencil,
+  X,
 } from "lucide-react";
 
 /**
@@ -95,6 +96,14 @@ type Lead = {
   industryAvgReply: number; // %
   dealValue: number; // $ amount
   nextStepAt?: string; // ISO
+  messagesSent?: number;
+  lastTouchAt?: string; // ISO; for inactivity highlight
+  activity?: Array<{
+    at: string;
+    type: "stage_changed";
+    from: StageId;
+    to: StageId;
+  }>;
 };
 
 const STAGES: { id: StageId; label: string; color: string; wip?: number }[] = [
@@ -161,6 +170,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 22,
     industryAvgReply: 25,
     dealValue: 3800,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "n3",
@@ -178,6 +188,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 31,
     industryAvgReply: 24,
     dealValue: 8200,
+    nextStepAt: "2025-10-01",
   },
 
   // SENT DM
@@ -196,6 +207,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 21,
     industryAvgReply: 24,
     dealValue: 3000,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "sd2",
@@ -212,6 +224,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 35,
     industryAvgReply: 29,
     dealValue: 9800,
+    nextStepAt: new Date().toISOString(),
   },
   {
     id: "sd3",
@@ -228,6 +241,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 26,
     industryAvgReply: 27,
     dealValue: 4200,
+    nextStepAt: "2025-10-01",
   },
 
   // IN PROGRESS
@@ -263,6 +277,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 33,
     industryAvgReply: 28,
     dealValue: 8700,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "ip3",
@@ -279,6 +294,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 24,
     industryAvgReply: 26,
     dealValue: 6100,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "ip4",
@@ -295,6 +311,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 29,
     industryAvgReply: 27,
     dealValue: 5400,
+    nextStepAt: "2025-10-01",
   },
 
   // QUALIFIED
@@ -313,6 +330,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 36,
     industryAvgReply: 25,
     dealValue: 13200,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "q2",
@@ -329,6 +347,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 28,
     industryAvgReply: 29,
     dealValue: 10100,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "q3",
@@ -345,6 +364,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 41,
     industryAvgReply: 29,
     dealValue: 15400,
+    nextStepAt: "2025-10-01",
   },
 
   // CALL BOOKED
@@ -380,6 +400,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 44,
     industryAvgReply: 29,
     dealValue: 22000,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "cb3",
@@ -396,6 +417,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 27,
     industryAvgReply: 29,
     dealValue: 7200,
+    nextStepAt: "2025-10-01",
   },
 
   // PROPOSAL
@@ -414,6 +436,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 39,
     industryAvgReply: 29,
     dealValue: 18000,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "p2",
@@ -430,6 +453,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 31,
     industryAvgReply: 26,
     dealValue: 13400,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "p3",
@@ -446,6 +470,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 24,
     industryAvgReply: 29,
     dealValue: 6400,
+    nextStepAt: "2025-10-01",
   },
 
   // WON
@@ -464,6 +489,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 46,
     industryAvgReply: 29,
     dealValue: 26000,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "w2",
@@ -480,6 +506,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 34,
     industryAvgReply: 25,
     dealValue: 15000,
+    nextStepAt: "2025-10-01",
   },
 
   // LOST
@@ -498,6 +525,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 18,
     industryAvgReply: 24,
     dealValue: 0,
+    nextStepAt: "2025-10-01",
   },
   {
     id: "l2x",
@@ -514,6 +542,7 @@ const INITIAL_LEADS: Lead[] = [
     replyRate: 21,
     industryAvgReply: 29,
     dealValue: 0,
+    nextStepAt: "2025-10-01",
   },
 ];
 
@@ -528,269 +557,22 @@ const currency = (n: number) =>
 const cn = (...xs: Array<string | false | undefined>) =>
   xs.filter(Boolean).join(" ");
 
-/* -------------------- KPI with Benchmark -------------------- */
-function KpiWithBenchmark({
-  label,
-  value,
-  benchmark,
-  goodWhenHigher = true,
-}: {
-  label: string;
-  value: string;
-  benchmark?: string;
-  goodWhenHigher?: boolean;
-}) {
-  const v = parseFloat(value.replace(/[^0-9.\-]/g, ""));
-  const b = benchmark ? parseFloat(benchmark.replace(/[^0-9.\-]/g, "")) : NaN;
-  const delta = isNaN(b) ? undefined : v - b;
-  const up = delta !== undefined ? delta > 0 : undefined;
-  const color =
-    up === undefined
-      ? "text-slate-800"
-      : up === goodWhenHigher
-      ? "text-emerald-600"
-      : "text-rose-600";
-  return (
-    <div className="flex items-end gap-2">
-      <div className="text-slate-700 text-md font-semibold leading-5">
-        {label}: {value}
-      </div>
-      {benchmark && (
-        <div className={cn("text-xs", color)}>
-          {up === undefined ? null : up ? "↑" : "↓"}{" "}
-          <span className="text-slate-500">Avg {benchmark}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CardMenu() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        className="p-1 rounded hover:bg-slate-50 text-slate-500"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-40 rounded-xl border bg-white shadow-lg p-1 text-sm z-10">
-          <button className="w-full text-left px-3 py-2 hover:bg-slate-50 inline-flex items-center gap-2">
-            <ExternalLink className="h-4 w-4" /> Open
-          </button>
-          <button className="w-full text-left px-3 py-2 hover:bg-slate-50 inline-flex items-center gap-2">
-            <Pencil className="h-4 w-4" /> Edit
-          </button>
-          <button className="w-full text-left px-3 py-2 hover:bg-slate-50 inline-flex items-center gap-2 text-rose-600">
-            <Trash2 className="h-4 w-4" /> Remove
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 /* -------------------- Lead Card (Compact) -------------------- */
-// function LeadCard({
-//   lead,
-//   onOpen,
-//   dragHandleProps,
-// }: {
-//   lead: Lead;
-//   onOpen: (l: Lead) => void;
-//   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
-// }) {
-//   const aboveAvg = lead.replyRate >= lead.industryAvgReply;
-//   const [hover, setHover] = useState(false);
-
-//   return (
-//     <div
-//       className="group relative"
-//       onMouseEnter={() => setHover(true)}
-//       onMouseLeave={() => setHover(false)}
-//     >
-//       <div
-//         role="button"
-//         tabIndex={0}
-//         onClick={() => onOpen(lead)}
-//         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(lead)}
-//         className="w-full text-left rounded-xl border border-slate-200 bg-white p-3 hover:shadow-sm hover:border-slate-300 transition shadow-[0_1px_0_rgba(0,0,0,0.03)] overflow-hidden"
-//       >
-//         <div className="flex items-start gap-3">
-//           {dragHandleProps && (
-//             <button
-//               aria-label="Drag"
-//               className="mt-1 h-6 w-6 shrink-0 rounded hover:bg-slate-50 text-slate-400 grid place-items-center cursor-grab active:cursor-grabbing"
-//               {...dragHandleProps}
-//               onClick={(e) => {
-//                 e.preventDefault();
-//                 e.stopPropagation();
-//               }}
-//             >
-//               <GripVertical className="h-4 w-4" />
-//             </button>
-//           )}
-
-//           <Image
-//             src={`${lead.avatar}`}
-//             alt=""
-//             className="h-8 w-8 rounded-full object-cover"
-//             width={100}
-//             height={100}
-//           />
-
-//           <div className="flex-1 min-w-0">
-//             <div className="flex items-center justify-between gap-2">
-//               <div className="truncate">
-//                 <div className="text-sm font-semibold text-slate-900 truncate">
-//                   {lead.name}
-//                 </div>
-//                 <div className="text-xs text-slate-500 truncate">
-//                   {lead.title} · {lead.company}
-//                 </div>
-//               </div>
-//               {/* <span
-//                 className={cn(
-//                   "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white",
-//                   STAGES.find((s) => s.id === lead.stage)?.color
-//                 )}
-//               >
-//                 {STAGES.find((s) => s.id === lead.stage)?.label}
-//               </span> */}
-
-//               <div className="flex items-center gap-1 shrink-0">
-//                 <span
-//                   className={cn(
-//                     "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white",
-//                     STAGES.find((s) => s.id === lead.stage)?.color
-//                   )}
-//                 >
-//                   {STAGES.find((s) => s.id === lead.stage)?.label}
-//                 </span>
-
-//                 {/* Kebab */}
-//                 <CardMenu />
-//               </div>
-//             </div>
-
-//             {/* Benchmarked Reply Rate */}
-//             <div className="mt-2 flex items-center gap-2 text-sm">
-//               <span
-//                 className={cn(
-//                   "font-semibold",
-//                   aboveAvg ? "text-emerald-700" : "text-rose-700"
-//                 )}
-//               >
-//                 {lead.replyRate}%
-//               </span>
-//               <span className="text-xs text-slate-500">
-//                 (Avg {lead.industryAvgReply}%)
-//               </span>
-//               <span
-//                 className={cn(
-//                   "text-xs",
-//                   aboveAvg ? "text-emerald-600" : "text-rose-600"
-//                 )}
-//               >
-//                 {aboveAvg ? "↑" : "↓"}
-//               </span>
-//             </div>
-
-//             {/* Key Metrics Row */}
-//             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-//               <span className="rounded bg-slate-50 px-1.5 py-0.5">
-//                 Eng {lead.engagement}
-//               </span>
-//               <span className="rounded bg-slate-50 px-1.5 py-0.5">
-//                 {currency(lead.dealValue)}
-//               </span>
-//               {lead.nextStepAt && (
-//                 <span className="inline-flex items-center gap-1 rounded bg-slate-50 px-1.5 py-0.5 whitespace-nowrap">
-//                   <Calendar className="h-3.5 w-3.5" />
-//                   {new Date(lead.nextStepAt).toLocaleDateString()}
-//                 </span>
-//               )}
-//             </div>
-
-//             {/* Quick Actions */}
-//             {/* opacity-0 group-hover:opacity-100 */}
-//             <div className="mt-2 flex items-center gap-2  transition">
-//               <button
-//                 className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
-//                 onClick={(e) => e.stopPropagation()}
-//               >
-//                 <Mail className="h-4 w-4" />
-//               </button>
-//               <button
-//                 className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
-//                 onClick={(e) => e.stopPropagation()}
-//               >
-//                 <MessageCircle className="h-4 w-4" />
-//               </button>
-//               <button
-//                 className="rounded border px-2 py-1 text-xs hover:bg-slate-50"
-//                 onClick={(e) => e.stopPropagation()}
-//               >
-//                 <Linkedin className="h-4 w-4" />
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* Hover Quick View */}
-//       {hover && (
-//         <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border bg-white p-3 text-xs text-slate-700 shadow">
-//           {lead.headline && <div className="mb-1">{lead.headline}</div>}
-//           <div className="flex flex-wrap gap-x-3 gap-y-1">
-//             {lead.location && <span>{lead.location}</span>}
-//             {lead.priority && <span>Priority: {lead.priority}</span>}
-//             {lead.firstInteraction && (
-//               <span>First: {lead.firstInteraction}</span>
-//             )}
-//             {lead.avgResponseHrs !== undefined && (
-//               <span>Avg resp: {lead.avgResponseHrs}h</span>
-//             )}
-//             {!!lead.tags?.length && <span>Tags: {lead.tags.join(", ")}</span>}
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
 
 function LeadCard({
   lead,
   onOpen,
-  dragHandleProps,
+  dragHandleProps, // <-- NEW: listeners from useSortable
 }: {
   lead: Lead;
   onOpen: (l: Lead) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }) {
   const aboveAvg = lead.replyRate >= lead.industryAvgReply;
-
   const [hover, setHover] = useState(false);
   const [isPointerDown, setIsPointerDown] = useState(false);
-
-  // Hide hover preview while dragging globally
   const { active } = useDndContext();
   const dragging = Boolean(active);
-
   useEffect(() => {
     const up = () => setIsPointerDown(false);
     const end = () => setIsPointerDown(false);
@@ -803,201 +585,206 @@ function LeadCard({
       window.removeEventListener("pointercancel", up);
     };
   }, []);
-
   useEffect(() => {
     if (dragging) {
       setHover(false);
       setIsPointerDown(false);
     }
   }, [dragging]);
-
   const showHover = hover && !isPointerDown && !dragging;
 
-  // Stage bg class (e.g. "bg-indigo-500") for the accent strip + progress bar fill
-  const stageBgClass =
-    STAGES.find((s) => s.id === lead.stage)?.color || "bg-slate-300";
+  const stage = STAGES.find((s) => s.id === lead.stage);
+  const engagement = Math.max(0, Math.min(100, lead.engagement));
 
-  const engagementClamped = Math.max(0, Math.min(100, lead.engagement));
+  const nextDate = lead.nextStepAt ? new Date(lead.nextStepAt) : null;
+  const isOverdue = nextDate ? nextDate < new Date() : false;
 
   return (
     <div
       className="group relative"
-      onMouseEnter={() => {
-        if (!isPointerDown && !dragging) setHover(true);
-      }}
+      onMouseEnter={() => !isPointerDown && !dragging && setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
       <div
         role="button"
-        tabIndex={0}
         onClick={() => onOpen(lead)}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(lead)}
         onPointerDown={() => {
           setHover(false);
           setIsPointerDown(true);
         }}
-        className="relative w-full text-left rounded-xl border border-slate-200 bg-white p-3 hover:shadow-sm hover:border-slate-300 transition shadow-[0_1px_0_rgba(0,0,0,0.03)] overflow-hidden"
+        className="relative w-full text-left rounded-xl border border-slate-200 bg-white p-3 hover:shadow-sm hover:border-slate-300 transition shadow-[0_1px_0_rgba(0,0,0,0.03)]"
       >
-        {/* Left color accent that matches stage */}
-        <div
-        //   className={cn(
-        //     "pointer-events-none absolute left-0 top-0 h-full w-1.5 rounded-l-xl",
-        //     stageBgClass
-        //   )}
-        />
+        {/* Top row: stage pill (left) + actions (right) */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white whitespace-nowrap",
+                stage?.color ?? "bg-slate-500"
+              )}
+            >
+              {stage?.label ?? "Stage"}
+            </span>
 
-        {/* Top row: drag handle + (avatar + identity) + stage + menu */}
-        <div className="flex items-start gap-3">
-          {dragHandleProps && (
+            {lead.priority && (
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full",
+                  lead.priority === "high" && "bg-rose-50 text-rose-700",
+                  lead.priority === "medium" && "bg-amber-50 text-amber-700",
+                  lead.priority === "low" && "bg-emerald-50 text-emerald-700"
+                )}
+              >
+                {lead.priority[0].toUpperCase() + lead.priority.slice(1)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              aria-label="Drag"
-              className="mt-1 h-6 w-6 shrink-0 rounded hover:bg-slate-50 text-slate-400 grid place-items-center cursor-grab active:cursor-grabbing"
+              aria-label="Open WhatsApp"
+              title="Open WhatsApp"
+              className="rounded border px-2 py-1 hover:bg-slate-50 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MessageCircle className="h-4 w-4" />
+            </button>
+            <button
+              aria-label="Send email"
+              title="Send email"
+              className="rounded border px-2 py-1 hover:bg-slate-50 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Mail className="h-4 w-4" />
+            </button>
+            <button
+              aria-label="Open LinkedIn DM"
+              title="Open LinkedIn DM"
+              className="rounded border px-2 py-1 hover:bg-slate-50 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Linkedin className="h-4 w-4" />
+            </button>
+            {/* <CardMenu /> */}
+
+            <button
+              aria-label="Drag card"
+              title="Drag"
+              className="ml-1 h-7 w-7 grid place-items-center rounded hover:bg-slate-50
+               cursor-grab active:cursor-grabbing text-slate-400"
               {...dragHandleProps}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
               }}
+              //   onPointerDown={() => {
+              //     setHover(false);
+              //     setIsPointerDown(true);
+              //   }}
             >
+              {/* 2x2 grid dots */}
               <GripVertical className="h-4 w-4" />
+              {/* If you prefer a true grid: import { Grip } and use <Grip .../> */}
             </button>
-          )}
+          </div>
+        </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              {/* Avatar + identity kept together so rows below span full width */}
-              <div className="flex items-center gap-3 min-w-0">
-                <Image
-                  src={`${lead.avatar}`}
-                  alt=""
-                  className="h-8 w-8 rounded-full object-cover shrink-0"
-                  width={100}
-                  height={100}
-                />
-                <div className="truncate">
-                  <div className="text-sm font-semibold text-slate-900 truncate">
-                    {lead.name}
-                  </div>
-                  <div className="text-xs text-slate-500 truncate">
-                    {lead.title} · {lead.company}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 shrink-0">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white",
-                    STAGES.find((s) => s.id === lead.stage)?.color
-                  )}
-                >
-                  {STAGES.find((s) => s.id === lead.stage)?.label}
-                </span>
-                <CardMenu />
-              </div>
+        {/* Identity */}
+        <div className="mt-3 flex items-center gap-3 min-w-0">
+          <Image
+            src={`${lead.avatar}`}
+            alt=""
+            className="h-9 w-9 rounded-full object-cover shrink-0"
+            width={100}
+            height={100}
+          />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-900 truncate">
+              {lead.name}
             </div>
+            <div className="text-xs text-slate-500 truncate">
+              {lead.title} · {lead.company}
+            </div>
+          </div>
+        </div>
 
-            {/* Benchmarked Reply Rate */}
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <span
-                className={cn(
-                  "font-semibold",
-                  aboveAvg ? "text-emerald-700" : "text-rose-700"
-                )}
-              >
+        {/* Metrics A: badges */}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[11px] text-slate-700 whitespace-nowrap">
+              Reply Rate{" "}
+              <span className="font-semibold text-slate-900">
                 {lead.replyRate}%
               </span>
-              <span className="text-xs text-slate-500">
-                (Avg {lead.industryAvgReply}%)
-              </span>
-              <span
-                className={cn(
-                  "text-xs",
-                  aboveAvg ? "text-emerald-600" : "text-rose-600"
-                )}
-              >
-                {aboveAvg ? "↑" : "↓"}
-              </span>
-            </div>
-
-            {/* Engagement score + mini progress bar */}
-            <div className="mt-2">
-              <div className="flex items-center justify-between text-xs text-slate-600">
-                <span className="font-medium text-slate-700">Engagement</span>
-                <span className="font-semibold text-slate-900">
-                  {engagementClamped}
-                </span>
-              </div>
-              <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full", stageBgClass)}
-                  style={{ width: `${engagementClamped}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Key Metrics */}
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-              <span className="rounded bg-slate-50 px-1.5 py-0.5">
-                {currency(lead.dealValue)}
-              </span>
-              {lead.nextStepAt && (
-                <span className="inline-flex items-center gap-1 rounded bg-slate-50 px-1.5 py-0.5 whitespace-nowrap">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {new Date(lead.nextStepAt).toLocaleDateString()}
-                </span>
+            </span>
+            <span
+              className={cn(
+                "text-[11px] inline-flex items-center gap-1 whitespace-nowrap",
+                aboveAvg ? "text-emerald-400" : "text-rose-400"
               )}
+            >
+              {aboveAvg ? "↑" : "↓"}
+              <span className="text-slate-500 whitespace-nowrap">
+                Avg&nbsp;{lead.industryAvgReply}%
+              </span>
+            </span>
+          </div>
+          <div className="flex items-center justify-end">
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+              Engagement{" "}
+              <span className="font-semibold text-slate-900">
+                {Math.round(engagement)}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        {/* Neutral mini progress (subtle, not stage color) */}
+        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-slate-300"
+            style={{ width: `${engagement}%` }}
+          />
+        </div>
+
+        {/* Metrics B: Deal + Next Step (one row) */}
+        <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <div className="text-slate-500">Deal Value</div>
+            <div className="font-semibold text-slate-900">
+              {currency(lead.dealValue)}
             </div>
-
-            {/* Quick Actions with tooltips */}
-            <div className="mt-2 flex items-center gap-2 transition">
-              <div className="relative group/tt">
-                <button
-                  aria-label="Send email"
-                  title="Send email"
-                  className="rounded border px-2 py-1 text-xs hover:bg-slate-50 cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Mail className="h-4 w-4" />
-                </button>
-                {/* Tooltip */}
-                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-7 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white opacity-0 group-hover/tt:opacity-100 transition-opacity shadow">
-                  Send email
-                </div>
-              </div>
-
-              <div className="relative group/tt">
-                <button
-                  aria-label="Open WhatsApp"
-                  title="Open WhatsApp"
-                  className="rounded border px-2 py-1 text-xs hover:bg-slate-50 cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                </button>
-                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-7 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white opacity-0 group-hover/tt:opacity-100 transition-opacity shadow">
-                  Open WhatsApp
-                </div>
-              </div>
-
-              <div className="relative group/tt">
-                <button
-                  aria-label="Open LinkedIn DM"
-                  title="Open LinkedIn DM"
-                  className="rounded border px-2 py-1 text-xs hover:bg-slate-50 cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Linkedin className="h-4 w-4" />
-                </button>
-                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-7 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white opacity-0 group-hover/tt:opacity-100 transition-opacity shadow">
-                  Open LinkedIn DM
-                </div>
-              </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              Avg in industry: $4.2k
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-slate-500">Next Step</div>
+            <div
+              className={cn(
+                "inline-flex items-center gap-1 font-semibold",
+                isOverdue ? "text-rose-700" : "text-slate-900"
+              )}
+            >
+              {nextDate
+                ? nextDate.toLocaleDateString(undefined, {
+                    day: "2-digit",
+                    month: "short",
+                  })
+                : "—"}
+              <Calendar
+                className={cn(
+                  "h-3.5 w-3.5",
+                  isOverdue ? "text-rose-600" : "text-slate-500"
+                )}
+              />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Hover Quick View — hidden while pointer down or dragging */}
+      {/* Hover Quick View */}
       {showHover && (
         <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border bg-white p-3 text-xs text-slate-700 shadow pointer-events-none">
           {lead.headline && <div className="mb-1">{lead.headline}</div>}
@@ -1019,6 +806,34 @@ function LeadCard({
 }
 
 /* -------------------- Sortable Wrapper -------------------- */
+
+// function SortableLeadCard({
+//   lead,
+//   onOpen,
+// }: {
+//   lead: Lead;
+//   onOpen: (l: Lead) => void;
+// }) {
+//   const {
+//     attributes,
+//     listeners,
+//     setNodeRef,
+//     transform,
+//     transition,
+//     isDragging,
+//   } = useSortable({ id: lead.id });
+//   const style: React.CSSProperties = {
+//     transform: CSS.Transform.toString(transform),
+//     transition,
+//     opacity: isDragging ? 0.2 : 1,
+//   };
+
+//   return (
+//     <div ref={setNodeRef} style={style} {...attributes}>
+//       <LeadCard lead={lead} onOpen={onOpen} dragListeners={listeners as any} />
+//     </div>
+//   );
+// }
 function SortableLeadCard({
   lead,
   onOpen,
@@ -1034,12 +849,12 @@ function SortableLeadCard({
     transition,
     isDragging,
   } = useSortable({ id: lead.id });
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.2 : 1, // faint original
-    // keep space so layout doesn't jump
-    // (no height collapse since the node remains in flow)
+    opacity: isDragging ? 0.2 : 1,
+    touchAction: "none",
   };
 
   return (
@@ -1052,18 +867,21 @@ function SortableLeadCard({
     </div>
   );
 }
-
 /* -------------------- Column -------------------- */
 function StageColumn({
   stage,
   leads,
   onOpen,
   wip,
+  dragHandleProps,
+  onOpenCustomize,
 }: {
-  stage: { id: StageId; label: string; color: string };
+  stage: { id: StageId; label: string; color: string; wip?: number };
   leads: Lead[];
   onOpen: (l: Lead) => void;
   wip?: number;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
+  onOpenCustomize: () => void; // <-- NEW
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const overWip = typeof wip === "number" && leads.length >= wip;
@@ -1075,6 +893,13 @@ function StageColumn({
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
+          <button
+            aria-label="Drag column"
+            className="h-6 w-6 grid place-items-center rounded hover:bg-slate-50 cursor-grab active:cursor-grabbing text-slate-400"
+            {...dragHandleProps}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
           <span className={cn("h-2 w-2 rounded-full", stage.color)} />
           <h3 className="text-sm font-semibold text-slate-800">
             {stage.label}
@@ -1089,8 +914,14 @@ function StageColumn({
             {typeof wip === "number" ? `/${wip}` : ""}
           </span>
         </div>
-        <button className="text-xs text-slate-500 hover:text-slate-700">
-          ⋯
+        <button
+          aria-label="Customize column"
+          onClick={onOpenCustomize}
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs
+             text-slate-700 hover:bg-slate-50 cursor-pointer"
+          title="Customize column"
+        >
+          <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
 
@@ -1119,14 +950,33 @@ function StageColumn({
     </div>
   );
 }
-
 /* -------------------- Playbooks -------------------- */
 function Playbooks({
   context,
 }: {
   context: "dm" | "comments" | "email" | "deal";
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  const bullets =
+    context === "deal"
+      ? [
+          "Budget pushback → offer 3-tier (Basic/Standard/Pilot).",
+          "Anchor on ROI; quantify time/cost saved.",
+          "Ask for this quarter’s must-have outcome.",
+        ]
+      : [
+          "No reply after 2 DMs → comment on their latest post.",
+          "Keep opener to 1–2 lines, end with a question.",
+          "Reference a peer result; make the ask specific (10 min?).",
+        ];
+
+  const detail =
+    context === "deal"
+      ? `Example: "We can start with a 4-week Pilot focused on <metric>. If we hit <target>, we roll into Standard. Which scope gets you moving this quarter?"`
+      : `Example DM: "Loved your post on <topic>. Curious how you're handling <pain>. We helped <peer> cut <metric> by <X%>. Worth a quick 10 min to swap notes?"`;
+
   return (
     <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
       <button
@@ -1138,31 +988,26 @@ function Playbooks({
         </div>
         <span className="text-slate-500">{open ? "▾" : "▸"}</span>
       </button>
+
       {open && (
         <div className="mt-3 space-y-3">
-          {context === "dm" && (
-            <>
-              <div className="text-sm text-slate-700">
-                No reply after 2 DMs → try a nurture comment strategy.
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
-                {
-                  '"Saw your post on {topic}. Curious how you handle {pain}. We helped {peer} get X with Y — worth 10 mins?"'
-                }
-              </div>
-            </>
-          )}
-          {context === "deal" && (
-            <>
-              <div className="text-sm text-slate-700">
-                Budget objection detected → offer option framing.
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
-                {
-                  'Basic / Standard / Pilot (outcome-based). Anchor on ROI. Ask: "Which scope gets you moving this quarter?"'
-                }
-              </div>
-            </>
+          <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
+            {bullets.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+
+          <button
+            className="text-xs text-slate-600 hover:underline"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "Hide examples" : "Show examples"}
+          </button>
+
+          {expanded && (
+            <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
+              {detail}
+            </div>
           )}
         </div>
       )}
@@ -1171,6 +1016,7 @@ function Playbooks({
 }
 
 /* -------------------- Detail Drawer -------------------- */
+
 function DetailDrawer({
   lead,
   onClose,
@@ -1189,38 +1035,96 @@ function DetailDrawer({
 
   if (!lead) return null;
 
+  const messagesSent = (lead as any).messagesSent as number | undefined;
+  const ctl = "h-7 text-xs rounded-full border px-2 py-0.5 whitespace-nowrap";
+  // helpers
+  const StageSelect = (
+    <select
+      className={cn(ctl, "border-slate-300")}
+      value={lead.stage}
+      onChange={(e) => onStageChange(e.target.value as StageId)}
+    >
+      {STAGES.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.label}
+        </option>
+      ))}
+    </select>
+  );
+
+  const PrioritySelect = (
+    <select
+      className={cn(ctl, "border-slate-300")}
+      defaultValue={lead.priority ?? ""}
+    >
+      <option value="">Priority</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+    </select>
+  );
+
+  const IndustrySelect = (
+    <select
+      className={cn(ctl, "border-slate-300")}
+      defaultValue={lead.industry ?? ""}
+    >
+      <option value="">Industry</option>
+      {Array.from(
+        new Set(
+          [lead.industry, "SaaS", "Fintech", "Ecommerce", "Logistics"].filter(
+            Boolean
+          )
+        )
+      ).map((i) => (
+        <option key={String(i)} value={String(i)}>
+          {String(i)}
+        </option>
+      ))}
+    </select>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex">
+      {/* scrim */}
       <div
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"
         onClick={onClose}
       />
-      <div className="absolute right-0 top-0 h-full w-full max-w-[520px] bg-white shadow-2xl border-l border-slate-200 p-0 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-slate-200">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
+
+      {/* drawer */}
+      <div className="absolute right-0 top-0 h-full w-full max-w-[720px] bg-white shadow-2xl border-l border-slate-200 flex flex-col">
+        {/* ===== Overview header ===== */}
+        <div className="p-5 border-b border-slate-200">
+          <div className="gap-4">
+            {/* Left: Identity */}
+            <div className="col-span-7 flex items-start gap-3 min-w-0">
               <Image
                 src={`${lead.avatar}`}
-                className="h-10 w-10 rounded-full"
-                alt="lead"
-                width={100}
-                height={100}
+                className="h-12 w-12 rounded-full object-cover"
+                alt=""
+                width={96}
+                height={96}
               />
-              <div>
-                <div className="text-sm font-semibold text-slate-900">
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-slate-900 truncate">
                   {lead.name}
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-600 truncate">
                   {lead.title} · {lead.company}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {lead.location && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                      {lead.location}
+                    </span>
+                  )}
                   {lead.industry && (
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                       {lead.industry}
                     </span>
                   )}
-                  {lead.tags?.map((t) => (
+                  {lead.tags?.slice(0, 3).map((t) => (
                     <span
                       key={t}
                       className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700"
@@ -1228,39 +1132,167 @@ function DetailDrawer({
                       {t}
                     </span>
                   ))}
+                  {lead.tags && lead.tags.length > 3 && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                      +{lead.tags.length - 3}
+                    </span>
+                  )}
+                  <a
+                    href="#"
+                    className="text-[11px] px-2 py-0.5 rounded-full border text-slate-700 hover:bg-slate-50"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    LinkedIn Profile
+                  </a>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <select
-                className="text-xs rounded-full border border-slate-300 px-2 py-1"
-                value={lead.stage}
-                onChange={(e) => onStageChange(e.target.value as StageId)}
-              >
-                {STAGES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="text-slate-500 text-xl leading-none"
-                onClick={onClose}
-              >
-                ×
-              </button>
+
+            <button
+              className="ml-1 text-slate-500 text-xl leading-none px-1 absolute right-4 top-10"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Right: Quick tags / controls */}
+            <div className="flex  items-center justify-between my-6">
+              {/* Row 1: selectors */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {StageSelect}
+                {PrioritySelect}
+                {IndustrySelect}
+              </div>
+
+              {/* Row 2: actions */}
+              <div className="flex items-center gap-2">
+                <button className={ctl}>Group</button>
+                <button
+                  className={cn(
+                    ctl,
+                    "bg-indigo-600 text-white border-indigo-600"
+                  )}
+                >
+                  Enrich
+                </button>
+                <button className={ctl}>Birthday</button>
+              </div>
+            </div>
+
+            {/* KPI strip (full width) */}
+            <div className="col-span-12 mt-3 rounded-xl border border-slate-200 p-3 bg-white">
+              {/* Engagement KPIs */}
+              <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-6 flex items-end gap-2">
+                  <div className="text-sm font-semibold text-slate-900">
+                    Reply Rate: {lead.replyRate}%
+                  </div>
+                  <div
+                    className={cn(
+                      "text-xs",
+                      lead.replyRate >= lead.industryAvgReply
+                        ? "text-emerald-600"
+                        : "text-rose-600"
+                    )}
+                  >
+                    {lead.replyRate >= lead.industryAvgReply ? "↑" : "↓"}{" "}
+                    <span className="text-slate-500">
+                      Industry Avg: {lead.industryAvgReply}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="col-span-3">
+                  <div className="text-xs text-slate-500">Engagement</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-semibold text-slate-900">
+                      {Math.max(0, Math.min(100, lead.engagement))}
+                    </div>
+                    <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full bg-slate-300 rounded-full"
+                        style={{
+                          width: `${Math.max(
+                            0,
+                            Math.min(100, lead.engagement)
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-span-3 flex items-end gap-3 justify-end">
+                  {lead.avgResponseHrs !== undefined && (
+                    <div className="text-xs rounded-full bg-slate-100 text-slate-700 px-2 py-0.5">
+                      Avg Response{" "}
+                      <span className="font-semibold">
+                        {lead.avgResponseHrs}h
+                      </span>
+                    </div>
+                  )}
+                  {messagesSent !== undefined && (
+                    <div className="text-xs rounded-full bg-slate-100 text-slate-700 px-2 py-0.5">
+                      Messages Sent{" "}
+                      <span className="font-semibold">{messagesSent}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Deal KPIs */}
+              <div className="mt-3 grid grid-cols-12 gap-3">
+                <div className="col-span-4">
+                  <div className="text-xs text-slate-500">Deal Value</div>
+                  <div className="text-sm font-semibold">
+                    {currency(lead.dealValue)}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Avg in your industry: $4.2k
+                  </div>
+                </div>
+                <div className="col-span-4">
+                  <div className="text-xs text-slate-500">
+                    Expected Close Date
+                  </div>
+                  <input
+                    type="date"
+                    className="mt-1 text-sm rounded-lg border px-2 py-1 w-full"
+                    defaultValue=""
+                  />
+                </div>
+                <div className="col-span-4">
+                  <div className="text-xs text-slate-500">Next Step</div>
+                  <input
+                    className="mt-1 text-sm rounded-lg border px-2 py-1 w-full"
+                    placeholder="Short next step"
+                    defaultValue={
+                      lead.nextStepAt
+                        ? new Date(lead.nextStepAt).toLocaleDateString(
+                            undefined,
+                            {
+                              day: "2-digit",
+                              month: "short",
+                            }
+                          )
+                        : ""
+                    }
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="px-4 border-b border-slate-200">
-          <div className="flex  justify-around gap-3 text-sm">
+        {/* ===== Tabs ===== */}
+        <div className="px-5 border-b border-slate-200">
+          <div className="flex justify-around gap-3 text-sm">
             {[
-              { k: "engagement", l: "Engagement" },
-              { k: "deal", l: "Deal" },
-              { k: "notes", l: "Notes" },
-              { k: "timeline", l: "Timeline" },
+              { k: "engagement", l: "Engagement & Communication" },
+              { k: "deal", l: "Deal & Sales Data" },
+              { k: "notes", l: "Notes & Reminders" },
+              { k: "timeline", l: "Meta & History" },
             ].map((t) => (
               <button
                 key={t.k}
@@ -1278,11 +1310,13 @@ function DetailDrawer({
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-4 overflow-auto">
+        {/* ===== Content ===== */}
+        <div className="flex-1 overflow-auto p-5">
+          {/* --- Engagement & Communication --- */}
           {tab === "engagement" && (
             <div>
-              <div className="mb-5 flex gap-2 text-sm mt-2">
+              {/* Channel tabs */}
+              <div className="mb-4 flex gap-2 text-sm">
                 {[
                   { k: "dm", l: "LinkedIn DMs" },
                   { k: "comments", l: "Comments" },
@@ -1304,25 +1338,45 @@ function DetailDrawer({
                 ))}
               </div>
 
-              <div className="space-y-4 mb-6">
-                <KpiWithBenchmark
-                  label="Reply Rate"
-                  value={`${lead.replyRate}%`}
-                  benchmark={`${lead.industryAvgReply}%`}
-                />
-                <KpiWithBenchmark
-                  label="Engagement"
-                  value={`${lead.engagement}`}
-                />
-                {lead.avgResponseHrs !== undefined && (
-                  <KpiWithBenchmark
-                    label="Avg Response"
-                    value={`${lead.avgResponseHrs}h`}
-                    goodWhenHigher={false}
-                  />
-                )}
+              {/* Tab-specific KPI line + micro-stats */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <div className="flex items-end gap-2">
+                  <div className="text-sm font-semibold text-slate-900">
+                    Reply Rate: {lead.replyRate}%
+                  </div>
+                  <div
+                    className={cn(
+                      "text-xs",
+                      lead.replyRate >= lead.industryAvgReply
+                        ? "text-emerald-600"
+                        : "text-rose-600"
+                    )}
+                  >
+                    {lead.replyRate >= lead.industryAvgReply ? "↑" : "↓"}{" "}
+                    <span className="text-slate-500">
+                      Industry Avg: {lead.industryAvgReply}%
+                    </span>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-600">
+                  {messagesSent !== undefined && (
+                    <span className="mr-3">
+                      Messages Sent:{" "}
+                      <span className="font-semibold">{messagesSent}</span>
+                    </span>
+                  )}
+                  {lead.avgResponseHrs !== undefined && (
+                    <span>
+                      Avg Response:{" "}
+                      <span className="font-semibold">
+                        {lead.avgResponseHrs}h
+                      </span>
+                    </span>
+                  )}
+                </div>
               </div>
 
+              {/* Conversation/history */}
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="text-sm font-medium text-slate-800 mb-2">
                   {commTab === "dm"
@@ -1349,7 +1403,7 @@ function DetailDrawer({
                 <div className="mt-3 flex gap-2">
                   <input
                     className="flex-1 text-sm rounded-lg border px-3 py-2"
-                    placeholder={`Write a ${
+                    placeholder={`Type your ${
                       commTab === "email" ? "message" : "DM"
                     }…`}
                   />
@@ -1357,14 +1411,21 @@ function DetailDrawer({
                     Send
                   </button>
                 </div>
+
+                {/* Smart alert (optional) */}
+                <div className="mt-3 text-[11px] text-slate-500">
+                  No reply in 3 days — consider a nurture touch.
+                </div>
               </div>
 
+              {/* Playbooks */}
               <Playbooks context="dm" />
             </div>
           )}
 
+          {/* --- Deal & Sales Data --- */}
           {tab === "deal" && (
-            <div>
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl border p-3">
                   <div className="text-xs text-slate-500">Deal Value</div>
@@ -1372,16 +1433,20 @@ function DetailDrawer({
                     {currency(lead.dealValue)}
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    Avg deal in your industry: $4.2k
+                    Avg in your industry: $4.2k
                   </div>
                 </div>
+
                 <div className="rounded-xl border p-3">
-                  <div className="text-xs text-slate-500">Close Date</div>
+                  <div className="text-xs text-slate-500">
+                    Expected Close Date
+                  </div>
                   <input
                     type="date"
                     className="mt-1 text-sm rounded-lg border px-2 py-1 w-full"
                   />
                 </div>
+
                 <div className="rounded-xl border p-3 col-span-2">
                   <div className="text-xs text-slate-500 mb-1">
                     Won/Lost Reason
@@ -1398,12 +1463,29 @@ function DetailDrawer({
                         </button>
                       ))}
                   </div>
+                  <div className="mt-3">
+                    <div className="text-xs text-slate-500 mb-1">
+                      Next Steps
+                    </div>
+                    <textarea
+                      className="w-full rounded-lg border p-2 text-sm"
+                      rows={3}
+                      placeholder="Write concrete next steps…"
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <button className="text-xs rounded-lg border px-2 py-1">
+                      Meeting at…
+                    </button>
+                  </div>
                 </div>
               </div>
+
               <Playbooks context="deal" />
             </div>
           )}
 
+          {/* --- Notes & Reminders --- */}
           {tab === "notes" && (
             <div className="space-y-3">
               <textarea
@@ -1422,24 +1504,43 @@ function DetailDrawer({
             </div>
           )}
 
+          {/* --- Meta & History --- */}
           {tab === "timeline" && (
-            <div className="space-y-3">
-              {[
-                "2025-09-22 Moved to In Progress",
-                "2025-09-21 DM reply received",
-                "2025-09-19 Added by Ava to pipeline",
-              ].map((t, i) => (
-                <div key={i} className="flex gap-2 text-sm text-slate-700">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-slate-400" />
-                  <div>{t}</div>
+            <div className="space-y-4">
+              <div className="rounded-xl border p-3">
+                <div className="text-sm font-medium text-slate-800 mb-2">
+                  Activity Timeline
                 </div>
-              ))}
+                {[
+                  "2025-09-22 Stage changed to In Progress",
+                  "2025-09-21 DM reply received",
+                  "2025-09-19 Added by Ava to pipeline",
+                ].map((t, i) => (
+                  <div key={i} className="flex gap-2 text-sm text-slate-700">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-slate-400" />
+                    <div>{t}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border p-3">
+                  <div className="text-xs text-slate-500">
+                    First Interaction
+                  </div>
+                  <div className="text-sm">{lead.firstInteraction ?? "—"}</div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-xs text-slate-500">Created by</div>
+                  <div className="text-sm">System</div>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="mt-auto p-4 border-t border-slate-200 flex items-center justify-between">
+        {/* Footer actions */}
+        <div className="p-4 border-t border-slate-200 flex items-center justify-between">
           <button className="rounded-lg border px-3 py-2 text-sm">
             Log activity
           </button>
@@ -1456,21 +1557,25 @@ function DetailDrawer({
     </div>
   );
 }
+
 /* -------------------- Sidebar (Left Navbar) -------------------- */
 function SideNavbar() {
   return (
     <aside className="h-full w-60 shrink-0 border-r border-slate-200 bg-white flex flex-col">
-      <div className="px-3 py-3 border-b border-slate-200 flex items-center gap-2">
+      {/* Brand / Workspace */}
+      <div className="px-3 py-8 border-b border-slate-200 flex items-center gap-2">
         <div className="h-7 w-7 rounded bg-slate-900" />
-        <div className="text-sm font-semibold">Acme Workspace</div>
+        <div className="text-lg font-semibold">Acme Workspace</div>
       </div>
 
-      <nav className="p-3 space-y-3 mt-4">
+      {/* Nav */}
+      <nav className="p-3 space-y-2 mt-3">
         <NavItem icon={<Home className="h-4 w-4" />} label="Home" active />
         <NavItem icon={<LayoutGrid className="h-4 w-4" />} label="Pipeline" />
         <NavItem icon={<Users className="h-4 w-4" />} label="Contacts" />
         <NavItem icon={<Sparkles className="h-4 w-4" />} label="Playbooks" />
-        <div className="pt-8 text-[11px] uppercase tracking-wide text-slate-500">
+
+        <div className="pt-4 pb-1 text-[11px] uppercase tracking-wide text-slate-500">
           Teams
         </div>
         <NavItem label="Growth" />
@@ -1478,8 +1583,9 @@ function SideNavbar() {
         <NavItem label="Success" />
       </nav>
 
+      {/* Footer */}
       <div className="mt-auto border-t border-slate-200 p-3 flex items-center justify-between">
-        <button className="inline-flex items-center gap-2 text-sm text-slate-700">
+        <button className="inline-flex items-center gap-2 text-sm text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg px-2 py-1 transition">
           <Settings className="h-4 w-4" />
           Settings
         </button>
@@ -1499,26 +1605,53 @@ function NavItem({
   icon,
   label,
   active,
+  accentClass = "bg-indigo-500", // change to bg-emerald-500, bg-sky-500, etc.
 }: {
   icon?: React.ReactNode;
   label: string;
   active?: boolean;
+  accentClass?: string;
 }) {
   return (
     <button
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer",
+        // base
+        "relative w-full text-left flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition",
+        "focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-slate-300",
+        // colors
         active
-          ? "bg-slate-100 text-slate-900"
-          : "text-slate-700 hover:bg-slate-50"
+          ? "bg-indigo-50 text-indigo-800"
+          : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
       )}
     >
-      {icon}
-      {label}
+      {/* icon bubble */}
+      <span
+        className={cn(
+          "grid place-items-center h-7 w-7 rounded-md",
+          active
+            ? "bg-indigo-100 text-indigo-700"
+            : "bg-slate-100 text-slate-600"
+        )}
+      >
+        {icon}
+      </span>
+
+      {/* label */}
+      <span className="truncate">{label}</span>
+
+      {/* right-edge active accent */}
+      {active && (
+        <span
+          className={cn(
+            "absolute right-0 top-1/2 -translate-y-1/2 h-5 w-1.5 rounded-l",
+            accentClass
+          )}
+        />
+      )}
     </button>
   );
 }
-
 /* -------------------- Column Customization Modal -------------------- */
 function Modal({
   title,
@@ -1998,6 +2131,36 @@ function BulkActions() {
   );
 }
 
+function SortableStageColumn(props: {
+  stage: { id: StageId; label: string; color: string; wip?: number };
+  leads: Lead[];
+  onOpen: (l: Lead) => void;
+  wip?: number;
+  onOpenCustomize: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.stage.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    touchAction: "none",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <StageColumn {...props} dragHandleProps={listeners as any} />{" "}
+    </div>
+  );
+}
+
 /* -------------------- Page -------------------- */
 export default function KanbanCRMPage() {
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
@@ -2076,7 +2239,7 @@ export default function KanbanCRMPage() {
     useSensor(TouchSensor, {
       activationConstraint: { delay: 120, tolerance: 5 },
     }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   // Derived groupings
@@ -2115,32 +2278,6 @@ export default function KanbanCRMPage() {
       byStage[s].some((l) => l.id === id)
     )!;
 
-  //   const wipOf = (stageId: StageId) => STAGES.find((s) => s.id === stageId)?.wip;
-
-  //   function onDragOver(e: DragOverEvent) {
-  //     // const { active, over } = e;
-  //     // if (!over) return;
-  //     // const activeId = String(active.id);
-  //     // const overId = String(over.id);
-  //     // const activeStage = findStageOf(activeId);
-  //     // const overStage = STAGES.some((s) => s.id === overId)
-  //     //   ? (overId as StageId)
-  //     //   : findStageOf(overId);
-  //     // // Soft WIP enforcement: prevent moving into columns over WIP
-  //     // const wip = wipOf(overStage);
-  //     // if (
-  //     //   typeof wip === "number" &&
-  //     //   byStage[overStage].length >= wip &&
-  //     //   activeStage !== overStage
-  //     // )
-  //     //   return;
-  //     // if (activeStage !== overStage) {
-  //     //   setLeads((prev) =>
-  //     //     prev.map((l) => (l.id === activeId ? { ...l, stage: overStage } : l))
-  //     //   );
-  //     // }
-  //   }
-
   function onDragStart(e: DragStartEvent) {
     setActiveId(String(e.active.id));
   }
@@ -2157,9 +2294,37 @@ export default function KanbanCRMPage() {
     const activeId = String(active.id);
     const overId = String(over.id);
 
+    const stageIds = stages.map((s) => s.id);
+    const isColumnDrag =
+      stageIds.includes(activeId as StageId) &&
+      stageIds.includes(overId as StageId);
+    if (isColumnDrag) {
+      const from = stageIds.indexOf(activeId as StageId);
+      const to = stageIds.indexOf(overId as StageId);
+      if (from !== -1 && to !== -1 && from !== to) {
+        setStages((prev) => arrayMove(prev, from, to));
+      }
+      return; // done, don't treat as card move
+    }
+
     const sourceStage = findStageOf(activeId);
     const overIsColumn = STAGES.some((s) => s.id === overId);
     const destStage = overIsColumn ? (overId as StageId) : findStageOf(overId);
+
+    if (sourceStage !== destStage) {
+      setLeads((prev) =>
+        prev.map((l) => {
+          if (l.id !== activeId) return l;
+          const entry = {
+            at: new Date().toISOString(),
+            type: "stage_changed" as const,
+            from: sourceStage,
+            to: destStage,
+          };
+          return { ...l, activity: [...(l.activity ?? []), entry] };
+        })
+      );
+    }
 
     setLeads((prev) => {
       // 1) Move to new stage if needed
@@ -2258,18 +2423,24 @@ export default function KanbanCRMPage() {
               >
                 <div className="h-full w-full overflow-hidden">
                   {/* Horizontal scroll area; columns grow vertically */}
-                  <div className="h-full overflow-x-auto overflow-y-hidden scrollbar-thin-x">
+                  <div className="h-full overflow-x-auto  scrollbar-thin-x">
                     <div className="h-full min-h-[calc(100dvh-140px)] pb-4 px-6 pt-4">
                       <div className="flex gap-4 h-full items-start">
-                        {stages.map((stage) => (
-                          <StageColumn
-                            key={stage.id}
-                            stage={stage}
-                            leads={byStageFiltered[stage.id]}
-                            onOpen={openLead}
-                            wip={stage.wip}
-                          />
-                        ))}
+                        <SortableContext
+                          items={stages.map((s) => s.id)}
+                          strategy={horizontalListSortingStrategy}
+                        >
+                          {stages.map((stage) => (
+                            <SortableStageColumn
+                              key={stage.id}
+                              stage={stage}
+                              leads={byStageFiltered[stage.id]}
+                              onOpen={openLead}
+                              wip={stage.wip}
+                              onOpenCustomize={() => setCustomizeOpen(true)}
+                            />
+                          ))}
+                        </SortableContext>
                       </div>
                     </div>
                   </div>

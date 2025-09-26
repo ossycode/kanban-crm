@@ -40,6 +40,10 @@
   background-clip: content-box;
 }
 
+button {
+  cursor: pointer;
+}
+
 /* Slim horizontal scrollbar just for the board */
 .scrollbar-thin-x {
   /* Firefox */
