@@ -1684,7 +1684,6 @@ function Modal({
 /* -------------------- Toolbar (sticky inside content) -------------------- */
 function BoardToolbar({
   onOpenCreate,
-  onOpenCustomize,
   owners,
   industries,
   tagsList,
@@ -1726,12 +1725,12 @@ function BoardToolbar({
         />
       </div>
 
-      <button
+      {/* <button
         className="rounded-lg border px-3 py-2 text-sm cursor-pointer"
         onClick={onOpenCustomize}
       >
         Customize columns
-      </button>
+      </button> */}
 
       <div className="ml-auto flex gap-2">
         <BulkActions />
